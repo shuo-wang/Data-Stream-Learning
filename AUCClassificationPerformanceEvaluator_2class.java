@@ -219,6 +219,8 @@ public class AUCClassificationPerformanceEvaluator_2class extends AbstractOption
     public double getAUC() {
     	double AUC = 0;
     	double c = 0;
+	double prevc = 0;
+	double lastPosScore = Double.MAX_VALUE;
 
     	if (numPos == 0 || numNeg == 0) {
     		return 1;
@@ -226,9 +228,18 @@ public class AUCClassificationPerformanceEvaluator_2class extends AbstractOption
 
       for (Score s : sortedScores){
 	if(s.isPositive) {
+	  if (s.value != lastPosScore) {
+	     prevc = c;
+	     lastPosScore = s.value;
+    	  }
 	  c += 1;
 	} else {
-	  AUC += c;
+	  if (s.value == lastPosScore) {
+		// tie
+		AUC += ((double) (c + prevc)) / 2.0;
+	  } else {
+		AUC += c;
+	  }
 	}
       }
 
@@ -238,6 +249,8 @@ public class AUCClassificationPerformanceEvaluator_2class extends AbstractOption
     public double getHoldoutAUC() {
       double AUC = 0;
       double c = 0;
+      double prevc = 0;
+      double lastPosScore = Double.MAX_VALUE;
 
       if (holdoutSortedScores.isEmpty()) {
 	return 0;
@@ -249,9 +262,18 @@ public class AUCClassificationPerformanceEvaluator_2class extends AbstractOption
 
       for (Score s : holdoutSortedScores){
 	if(s.isPositive) {
-	  c += 1;
+	  if (s.value != lastPosScore) {
+		prevc = c;
+		lastPosScore = s.value;
+    	  }
+    	  c += 1;;
 	} else {
-	  AUC += c;
+	  if (s.value == lastPosScore) {
+	      // tie
+              AUC += ((double) (c + prevc)) / 2.0;
+          } else {
+	      AUC += c;
+          }
 	}
       }
 
@@ -259,29 +281,55 @@ public class AUCClassificationPerformanceEvaluator_2class extends AbstractOption
     }
 
     public double getScoredAUC() {
-      double AOC = 0;
-      double AUC = 0;
-      double r = 0;
-      double c = 0;
-      double R_plus, R_minus;
+	double AOC = 0;
+	double AUC = 0;
+	double r = 0;
+	double prevr = 0;
+	double c = 0;
+	double prevc = 0;
+	double R_plus, R_minus;
+	double lastPosScore = Double.MAX_VALUE;
+	double lastNegScore = Double.MAX_VALUE;
 
-      if (numPos == 0 || numNeg == 0) {
-	return 1;
-      }
-
-      for (Score s : sortedScores){
-	if(s.isPositive) {
-	  c += s.value;
-	  AOC += r;
-	} else {
-	  r += s.value;
-	  AUC += c;
+	if (numPos == 0 || numNeg == 0) {
+		return 1;
 	}
-      }
 
-      R_minus = (numPos*r - AOC)/(numPos * numNeg);
-      R_plus = (AUC)/(numPos * numNeg);		
-      return R_plus - R_minus;
+	for (Score s : sortedScores) {
+		if (s.isPositive) {
+			if (s.value != lastPosScore) {
+				prevc = c;
+				lastPosScore = s.value;
+			}
+
+			c += s.value;
+
+			if (s.value == lastNegScore) {
+				// tie
+				AOC += ((double) (r + prevr)) / 2.0;
+			} else {
+				AOC += r;
+			}
+		} else {
+			if (s.value != lastNegScore) {
+				prevr = r;
+				lastNegScore = s.value;
+			}
+
+			r += s.value;
+
+			if (s.value == lastPosScore) {
+				// tie
+				AUC += ((double) (c + prevc)) / 2.0;
+			} else {
+				AUC += c;
+			}
+		}
+	}
+
+	R_minus = (numPos * r - AOC) / (numPos * numNeg);
+	R_plus = (AUC) / (numPos * numNeg);
+	return R_plus - R_minus;
     }
 
     public double getRatio() {
